@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * {
+      padding: 0;
+      margin: 0;
+    }
+    #container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    #screen {
+      width: 100%;
+      height: 100%;
+      background-color: #000; /* 初始背景颜色 */
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="screen"></div>
+  </div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const screen = document.getElementById('screen');
+      let audioContext, analyser;
+
+      // 获取用户麦克风权限并开始录音
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioContext.createAnalyser();
+
+          const source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+          analyser.connect(audioContext.destination);
+
+          changeColor();
+        })
+        .catch(error => {
+          console.error('Error accessing microphone:', error);
+        });
+
+      function changeColor() {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+
+        let volume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+        let frequency = dataArray.indexOf(Math.max(...dataArray));
+        
+        // 根据音量和频率调整颜色值
+        volume = easeOutCubic(volume / 255) * 255;
+        frequency = mapRange(frequency, 0, bufferLength - 1, 0, 360); // 调整色相范围为 0-360
+
+        const color = `hsl(${frequency}, 100%, ${volume}%)`; // 这里保持饱和度为 100%
+        screen.style.backgroundColor = color;
+
+        requestAnimationFrame(changeColor);
+      }
+
+      // 缓动函数 - 使用三次方缓出
+      function easeOutCubic(t) {
+        return (t = t - 1) * t * t + 1;
+      }
+
+      // 值映射函数
+      function mapRange(value, inMin, inMax, outMin, outMax) {
+        return ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+      }
+    });
+  </script>
+</body>
+</html>
